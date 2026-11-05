@@ -17,16 +17,18 @@ The project includes:
 ```
 .
 ├── notebooks/
+│   ├── README.md
 │   └── Algoritmos_geneticos.ipynb
 │
-├── vhdl/
+├── VHDL/
+│   ├── README.md
 │   ├── control/
 │   ├── operadores_geneticos/
 │   ├── memoria/
 │   ├── fitness/
 │   └── top/
 │
-├── Readme/
+├── misc/
 │   ├── arquitectura_general/
 │   ├── fsm/
 │   ├── Proceso_evolutivo/
