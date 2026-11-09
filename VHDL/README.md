@@ -1,67 +1,54 @@
-# ⚙️ VHDL Implementation
+# VHDL Implementation
 
-This folder contains the VHDL hardware description of the genetic algorithm architecture used for Middleton Class A noise parameter estimation.
+This folder contains the VHDL implementation of a genetic algorithm for estimating parameters of the Middleton Class A impulsive noise model. The design evaluates 48-bit individuals by comparing the empirical and theoretical complementary cumulative distribution functions (CCDFs) using a sum of absolute differences (SAD).
 
-The design is organized into functional blocks that separate control, genetic operators, memory, fitness evaluation, and top-level integration.
+## Structure
 
-## 📂 Folder Structure
-
-```
-vhdl/
-├── control/                 # Control unit and finite state machine (FSM)
-├── operadores_geneticos/    # Genetic operators (selection, crossover, mutation)
-├── memoria/                 # Memories, registers, and auxiliary storage
-├── fitness/                 # Fitness / cost function evaluation
-└── top/                     # Top-level integration
-```
-
-> Folder names are kept in Spanish to match the original project structure.
-
-## 🧩 Functional Blocks
-
-| Folder | Description |
-|---|---|
-| `control/` | Control unit and finite state machine (FSM) that coordinate the evolutionary process. |
-| `operadores_geneticos/` | Hardware implementation of the genetic operators used by the algorithm. |
-| `memoria/` | Memories and registers used to store the population, parameters, and intermediate results. |
-| `fitness/` | Fitness / cost function evaluation block. |
-| `top/` | Top-level module that integrates the complete system. |
-
-## 🔌 Top-Level Module
-
-The top-level design is located in:
-
-```
-vhdl/top/
+```text
+VHDL/
+├── README.md
+├── constraints/
+│   └── zedboard_ga.xdc
+└── rtl/
+    ├── ga_zedboard_top.vhd
+    ├── ga_core.vhd
+    ├── control_ga.vhd
+    ├── poblacion.vhd
+    ├── evol.vhd
+    ├── eval.vhd
+    ├── eval_elit.vhd
+    ├── elit.vhd
+    ├── CCDF_empirica.vhd
+    ├── ccdf_rom_sync.vhd
+    ├── ccdf_samples_pkg.vhd
+    ├── ccdf_stream.vhd
+    └── ...
 ```
 
-The exact top-level entity name and port list depend on the current implementation. Refer to the source files in this folder for the final interface definition.
+The files in `rtl/` cover control, population and offspring generation, evaluation, elitism, genetic operators, and supporting blocks. `ccdf_stream.vhd` and several `ccdf_stream_` helper files implement the theoretical CCDF calculation. `ccdf_samples_pkg.vhd` contains the 512 samples used by the synchronous ROM.
 
-## 🛠️ Simulation and Synthesis
+## Design flow
 
-The design can be simulated and synthesized using standard VHDL tools:
+1. `poblacion` generates initial 48-bit individuals using three pseudo-random number generators.
+2. `eval` calculates the empirical distribution and coordinates `ccdf_stream` to obtain the individual's theoretical distribution.
+3. The cost function accumulates the SAD over 512 aligned bin pairs.
+4. `elit` keeps the two lowest-cost individuals. `evol` uses offspring selection, crossover, and mutation to produce new individuals; `control_ga` coordinates the stages and generations.
+5. When the run finishes, `ga_core` publishes the best individual on `resultado` and asserts `valido`, which remains asserted until reset.
 
-| Tool | Purpose |
-|---|---|
-| ModelSim / QuestaSim | Behavioral and functional simulation |
-| Vivado / Quartus | FPGA synthesis and implementation |
+The `ga_core` entity has the generics `Npob` (default 42) and `Ngen` (default 120). Its `rst` input is an asynchronous, active-low reset. `resultado` is 48 bits wide, divided into three 16-bit fields for the individual parameters (`A`, `r`, and `SigmaG2`).
 
-Typical workflow:
+## ZedBoard Integration
 
-1. Create a project in your simulation or synthesis tool.
-2. Add the VHDL source files from the corresponding folders.
-3. Set the top-level entity from `vhdl/top/`.
-4. Compile, elaborate, and run the simulation.
-5. Apply synthesis constraints if targeting an FPGA.
+The top-level entity is `ga_zedboard_top`. It exposes the `clk` clock and the `SW0` switch; the 48-bit result and the `valido` signal are connected to `ila_0` for internal observation. The Vivado project must provide an ILA IP named `ila_0` with a 48-bit `probe0` and a 1-bit `probe1`; this IP is not defined in the VHDL files in this folder.
 
-> Simulation scripts, testbenches, and constraints may be added as the project evolves.
+The `constraints/zedboard_ga.xdc` file assigns `clk` to the 100 MHz clock on the ZedBoard Rev. C/D (Y9) and `SW0` to pin F22. `SW0 = 0` holds the design in reset, while `SW0 = 1` allows it to run.
 
-## 📝 Notes
+## Simulation and Synthesis
 
-- The implementation is currently under development.
-- File and folder names may be updated as the architecture is refined.
-- Refer to the main README for the overall project description and Python simulation.
+This folder does not include simulation scripts, testbenches, or a Vivado project. To set up a project:
 
----
+1. Add the VHDL files in `rtl/` to a `work` library, including the generated helper blocks used by `ccdf_stream`.
+2. For a board implementation, configure the `ila_0` IP described above, select `ga_zedboard_top` as the top-level entity, and add `constraints/zedboard_ga.xdc`.
+3. Compile and run simulation or synthesis with your chosen tool. Check the Vivado reports to verify the implementation and clock constraints.
 
-[⬅️ Back to main README](../README.md)
+For an overview of the repository and the Python simulation, see the [main README](../README.md).
